@@ -26,6 +26,13 @@ app.use(express.json());
 const uri = process.env.MONOGO_URI; 
 connectDB(uri);
 
+
+// Default route
+app.get("/", (req, res) => {
+  res.send("Tour Guide API is running ✅");
+});
+
+
 // API routes
 app.use("/api/packages", packageRoutes);
 app.use("/api/blogs", blogRoutes);
@@ -36,16 +43,9 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/auth", authRoutes);
 
 
-
 //Middleware for handling errors:
 app.use(notFound);
 app.use(errorHandler);
-
-
-// Default route
-app.get("/", (req, res) => {
-  res.send("Tour Guide API is running ✅");
-});
 
 
 
