@@ -3,28 +3,59 @@ import User from "../models/Users.Model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from 'dotenv';
+import Otp from "../models/Otp.Model.js";
 dotenv.config();
 // Create a JWT token
 const createToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "1d", // token valid for 7 days
+    expiresIn: "15m"//token valid for 7 days
   });
 };
 
+
 // @desc    Register a new user
 // @route   POST /api/auth/register
-export const registerUser = async (req, res) => {
+export const verifyOtpAndRegister = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      otp,
+      mobile,
+      dob,
+      state,
+      country,
+      age,
+      languages,
+      experience,
+      specializations,
+      availability,
+      hourlyRate,
+      description,
+    } = req.body;
 
+    // ✅ Check OTP validity
+    const otpRecord = await Otp.findOne({ email }).sort({ createdAt: -1 });
+    if (!otpRecord)
+      return res.status(400).json({ success: false, message: "OTP not found" });
+
+    if (otpRecord.otp !== otp)
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+
+    if (otpRecord.expiresAt < new Date())
+      return res.status(400).json({ success: false, message: "OTP expired" });
+
+    // OTP is valid → continue registration
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: "Email already registered" });
-    }
+    if (existingUser)
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
 
-    // Hash password using bcrypt (native)
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
@@ -33,21 +64,61 @@ export const registerUser = async (req, res) => {
       role,
     });
 
+    // Handle file uploads
+    const photoPath = req.files?.photo ? req.files.photo[0].path : null;
+    const licensePath = req.files?.license ? req.files.license[0].path : null;
+
+    // If guide → create profile
+    if (role === "guide") {
+      const guideProfile = await Guide.create({
+        user: user._id,
+        name,
+        mobile,
+        email,
+        dob,
+        state,
+        country,
+        age,
+        languages: languages ? JSON.parse(languages) : [],
+        experience,
+        specializations: specializations ? JSON.parse(specializations) : [],
+        availability: availability ? JSON.parse(availability) : [],
+        hourlyRate: hourlyRate ? Number(hourlyRate) : 0,
+        description,
+        license: licensePath,
+        photo: photoPath,
+        isApproved: false,
+      });
+
+      user.guideProfile = guideProfile._id;
+      await user.save();
+    }
+
+    // Delete OTP after success
+    await Otp.deleteMany({ email });
+
+    // Token
     const token = createToken(user._id);
-    res.cookie("token", token, {
-      httpOnly: true
-    });
+    res.cookie("token", token, { httpOnly: true });
 
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
-      data: { id: user._id, name: user.name, email: user.email, role: user.role },
+      message:
+        role === "guide"
+          ? "Guide registered successfully. Awaiting admin approval."
+          : "User registered successfully.",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // @desc    Login user
 // @route   POST /api/auth/login
 export const loginUser = async (req, res) => {

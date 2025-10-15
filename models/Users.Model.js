@@ -12,10 +12,15 @@ const userSchema = new mongoose.Schema(
     },
     avatar: { type: String },
     isActive: { type: Boolean, default: true },
+
+    // 🔗 Reference to Guide profile if the user is a guide
+    guideProfile: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Guide",
+      default: null,
+    },
   },
   { timestamps: true }
 );
-
-
 
 export default mongoose.model("User", userSchema);
