@@ -17,7 +17,7 @@ export const sendOtp = async (req, res) => {
     // Send email
     await sendEmail(
       email,
-      "Verify your email - Aviraj Infotech",
+      "Verify your email - BookMyTourGuide",
       `<p>Your OTP for verification is: <b>${otp}</b></p>
        <p>This OTP is valid for 10 minutes.</p>`
     );
