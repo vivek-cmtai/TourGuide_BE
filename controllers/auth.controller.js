@@ -50,10 +50,7 @@ export const verifyOtpAndRegister = async (req, res) => {
     // OTP is valid → continue registration
     const existingUser = await User.findOne({ email });
     if (existingUser)
-      return res.status(400).json({
-        success: false,
-        message: "Email already registered",
-      });
+      return res.status(400).json({ success: false, message: "Email already registered" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -64,32 +61,35 @@ export const verifyOtpAndRegister = async (req, res) => {
       role,
     });
 
-    // Handle file uploads
+    // Handle file uploads (optional)
     const photoPath = req.files?.photo ? req.files.photo[0].path : null;
     const licensePath = req.files?.license ? req.files.license[0].path : null;
 
-    // If guide → create profile
+    // If guide → create profile with optional fields
     if (role === "guide") {
-      const guideProfile = await Guide.create({
+      const guideProfileData = {
         user: user._id,
         name,
-        mobile,
         email,
-        dob,
-        state,
-        country,
-        age,
-        languages: languages ? JSON.parse(languages) : [],
-        experience,
-        specializations: specializations ? JSON.parse(specializations) : [],
-        availability: availability ? JSON.parse(availability) : [],
-        hourlyRate: hourlyRate ? Number(hourlyRate) : 0,
-        description,
-        license: licensePath,
-        photo: photoPath,
         isApproved: false,
-      });
+      };
 
+      // Add optional fields only if they exist
+      if (mobile) guideProfileData.mobile = mobile;
+      if (dob) guideProfileData.dob = dob;
+      if (state) guideProfileData.state = state;
+      if (country) guideProfileData.country = country;
+      if (age) guideProfileData.age = age;
+      if (languages) guideProfileData.languages = JSON.parse(languages);
+      if (experience) guideProfileData.experience = experience;
+      if (specializations) guideProfileData.specializations = JSON.parse(specializations);
+      if (availability) guideProfileData.availability = JSON.parse(availability);
+      if (hourlyRate) guideProfileData.hourlyRate = Number(hourlyRate);
+      if (description) guideProfileData.description = description;
+      if (photoPath) guideProfileData.photo = photoPath;
+      if (licensePath) guideProfileData.license = licensePath;
+
+      const guideProfile = await Guide.create(guideProfileData);
       user.guideProfile = guideProfile._id;
       await user.save();
     }
@@ -105,7 +105,7 @@ export const verifyOtpAndRegister = async (req, res) => {
       success: true,
       message:
         role === "guide"
-          ? "Guide registered successfully. Awaiting admin approval."
+          ? "Guide registered successfully. You can complete your profile later. Awaiting admin approval."
           : "User registered successfully.",
       data: {
         id: user._id,
@@ -119,6 +119,7 @@ export const verifyOtpAndRegister = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 // @desc    Login user
 // @route   POST /api/auth/login
 export const loginUser = async (req, res) => {
